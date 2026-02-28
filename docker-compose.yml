@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # 1. Our Persistent Database (For Users & Bookmarks)
+  mongodb:
+    image: mongo:latest
+    container_name: devfinds-mongo
+    ports:
+      - "27017:27017" # Maps your laptop's port to the container's port
+    volumes:
+      - mongo-data:/data/db # Keeps data safe even if the container stops
+    restart: unless-stopped
+
+  # 2. Our Fast Cache & Rate Limiter (For API Results)
+  redis:
+    image: redis:alpine
+    container_name: devfinds-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+# Define the volume so MongoDB data persists across restarts
+volumes:
+  mongo-data:
