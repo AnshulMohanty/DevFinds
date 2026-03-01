@@ -11,6 +11,7 @@ const { connectRedis } = require('./config/redis');
 const authRoutes = require('./routes/auth.routes');
 const app = express();
 const searchRoutes = require('./routes/search.routes'); 
+const bookmarkRoutes = require('./routes/bookmark.routes');
 
 
 // --- Connect to Dds ---
@@ -26,6 +27,7 @@ app.use(express.json());
 // Any request starting with /api/v1/auth will be sent to authRoutes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/search', searchRoutes);
+app.use('/api/v1/bookmarks', bookmarkRoutes); 
 
 // --- Health Check Route ---
 app.get('/health', (req, res) => {

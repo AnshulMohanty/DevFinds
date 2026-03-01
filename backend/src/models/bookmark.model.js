@@ -19,7 +19,7 @@ const bookmarkSchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ['stackoverflow', 'reddit', 'devto'],
+      enum: ['StackOverflow', 'Reddit', 'DevTo', 'GitHub'],
       required: true,
     },
     // Tags allow krta hai users ko apne saved bookmarks ko filter karne me (e.g., "React", "Docker")
