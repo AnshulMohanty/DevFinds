@@ -9,8 +9,8 @@ const { connectRedis } = require('./config/redis');
 
 // Import Route Files
 const authRoutes = require('./routes/auth.routes');
-
 const app = express();
+const searchRoutes = require('./routes/search.routes'); 
 
 
 // --- Connect to Dds ---
@@ -25,6 +25,7 @@ app.use(express.json());
 // --- Mount Routes ---
 // Any request starting with /api/v1/auth will be sent to authRoutes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/search', searchRoutes);
 
 // --- Health Check Route ---
 app.get('/health', (req, res) => {

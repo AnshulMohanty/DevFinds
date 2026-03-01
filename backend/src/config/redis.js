@@ -1,23 +1,29 @@
-const { createClient } = require('redis');
+const redis = require('redis');
 
-//  Redis client bna using the URL from .env
-const redisClient = createClient({
-  url: process.env.REDIS_URL
+// Create the Redis client using the URL from your .env file
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
-// Event listeners use honge for 'debugging' and 'logging'
-redisClient.on('error', (err) => console.error('❌ Redis Client Error:', err));
-redisClient.on('connect', () => console.log('✅ Redis Connected successfully'));
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
+// Function to connect to Redis when the server starts
 const connectRedis = async () => {
   try {
     await redisClient.connect();
-  } catch (error) {
-    console.error(`❌ Failed to connect to Redis: ${error.message}`);
- 
-    // agar Redis se connect nahi ho pata, toh hum process ko exit nahi karenge. 
-    // Agar Redis down ho jata hai, toh hamara app gracefully degrade kar sakta hai aur APIs se directly fetch kar sakta hai (though slower ==> trade off kr liya ).
+    console.log('✅ Redis Connected successfully');
+  } catch (err) {
+    console.error('❌ Redis Connection Error:', err);
   }
 };
 
-module.exports = { redisClient, connectRedis };
+// Function to allow other files (like our cache middleware) to use the client
+const getRedisClient = () => {
+  return redisClient;
+};
+
+// Export both functions
+module.exports = { 
+  connectRedis, 
+  getRedisClient 
+};
