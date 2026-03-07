@@ -31,7 +31,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background-dark px-4 relative overflow-hidden">
       
-      {/* SDE Detail: Subtle background glow behind the card */}
+      {/* Subtle background glow behind the card */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
       <motion.div 
