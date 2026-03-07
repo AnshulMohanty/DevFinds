@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-dark text-white font-display antialiased;
+  }
+}
+
+.font-mono {
+  font-family: 'Menlo', 'Monaco', 'Consolas', "Courier New", monospace !important;
+}
+
+/* Updated scrollbar to match the new mockup colors */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border-dark rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary;
+}
