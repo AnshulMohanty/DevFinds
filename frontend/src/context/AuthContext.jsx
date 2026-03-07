@@ -7,39 +7,46 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // When the app first loads, check if we already have a saved session
   useEffect(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
 
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
+    // Clean check for valid data
+    if (token && savedUser && savedUser !== "undefined") {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.clear();
+      }
     }
     setLoading(false);
   }, []);
 
-  // Login Function - hits our backend bridge
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
       
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      setUser(response.data.user);
-      return { success: true };
+      // We check for both common backend patterns: response.data.user OR response.data
+      const userData = response.data.user || response.data;
+      const token = response.data.token;
+
+      if (token && userData) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        return { success: true };
+      }
+      throw new Error("Invalid server response");
     } catch (error) {
       return { 
         success: false, 
-        error: error.response?.data?.error || 'Login failed' 
+        error: error.response?.data?.error || 'Invalid credentials' 
       };
     }
   };
 
-  // Logout Function - clears the browser memory
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.clear();
     setUser(null);
   };
 

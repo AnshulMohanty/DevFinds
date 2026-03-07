@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Terminal } from 'lucide-react';
@@ -93,8 +93,9 @@ const Login = () => {
         </form>
 
         <p className="text-center text-text-muted text-sm mt-6">
-          Don't have an account? <span className="text-primary hover:underline cursor-pointer">Register here</span>
+          Don't have an account? <Link to="/register" className="text-primary hover:underline">Register here</Link>
         </p>
+
       </motion.div>
     </div>
   );
