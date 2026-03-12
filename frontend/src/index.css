@@ -1,30 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-background-dark text-white font-display antialiased;
+    @apply bg-background-dark text-slate-100 font-display selection:bg-primary selection:text-background-dark;
   }
 }
 
-.font-mono {
-  font-family: 'Menlo', 'Monaco', 'Consolas', "Courier New", monospace !important;
+@layer utilities {
+  /* Custom scrollbar for that tech feel */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(6, 249, 6, 0.05);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(6, 249, 6, 0.2);
+    border-radius: 10px;
+  }
+
+  /* The 4-corner targeting reticle border from your mockups */
+  .tech-border {
+    position: relative;
+  }
+  .tech-border::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 8px;
+    height: 8px;
+    border-top: 1px solid rgba(6, 249, 6, 0.4);
+    border-left: 1px solid rgba(6, 249, 6, 0.4);
+    transition: all 0.3s ease;
+  }
+  .tech-border::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    border-bottom: 1px solid rgba(6, 249, 6, 0.4);
+    border-right: 1px solid rgba(6, 249, 6, 0.4);
+    transition: all 0.3s ease;
+  }
+  .group:hover .tech-border::before,
+  .group:hover .tech-border::after {
+    border-color: rgba(6, 249, 6, 1);
+    width: 12px;
+    height: 12px;
+  }
 }
 
-/* Updated scrollbar to match the new mockup colors */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-background-dark;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-border-dark rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary;
-}
+/* Neon Grid Custom Animations */
+  .orbital-path {
+    border: 1px solid rgba(6, 249, 6, 0.1);
+    border-radius: 50%;
+    position: absolute;
+  }
+  .glow-primary-strong {
+    box-shadow: 0 0 35px rgba(6, 249, 6, 0.4);
+  }

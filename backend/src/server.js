@@ -28,6 +28,8 @@ app.use(express.json());
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/bookmarks', bookmarkRoutes); 
+app.use('/api/v1/bookmarks', require('./routes/bookmark.routes'));
+
 
 // --- Health Check Route ---
 app.get('/health', (req, res) => {

@@ -8,24 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#0df20d",
-        "primary-dark": "#0bb50b",
-        "background-light": "#f5f8f5",
-        "background-dark": "#102210", 
-        "card-dark": "#1b271b",
-        "border-dark": "#283928",
-        "text-muted": "#9cba9c",
+        primary: "#06f906", // The Neon Green
+        background: {
+          light: "#f5f8f5",
+          dark: "#000000", // True pitch black
+        },
+        card: {
+          dark: "rgba(18, 18, 18, 0.6)", // Glassmorphism base
+        },
+        border: {
+          dark: "rgba(255, 255, 255, 0.1)",
+        }
       },
       fontFamily: {
-        "display": ["Space Grotesk", "sans-serif"],
-        "mono": ["monospace"]
-      },
-      borderRadius: {
-        "DEFAULT": "0.25rem", 
-        "lg": "0.5rem", 
-        "xl": "0.75rem", 
-        "2xl": "1rem", 
-        "full": "9999px"
+        display: ['"Space Grotesk"', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
     },
   },

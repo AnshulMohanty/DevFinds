@@ -1,4 +1,3 @@
-// DevFinds/backend/src/services/providers/StackOverflowProvider.js
 const BaseProvider = require('./BaseProvider');
 
 class StackOverflowProvider extends BaseProvider {
