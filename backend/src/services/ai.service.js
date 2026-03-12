@@ -1,64 +1,35 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Initialize the new Google Gen AI SDK. It automatically picks up process.env.GEMINI_API_KEY
-const ai = new GoogleGenAI({});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-/**
- * Synthesizes a developer-grade answer using strictly provided context (RAG)
- * @param {string} query - The user's original search query
- * @param {Array} contextData - The scraped data from Tavily and StackOverflow
- * @returns {Promise<string>} - The Markdown formatted answer
- */
-const generateDeveloperAnswer = async (query, contextData) => {
+const generateDeveloperAnswer = async (query, contextData, isProMode = false) => {
   try {
-    // 1. Format the raw scraped data into a readable string for the AI
-    const contextString = contextData
-      .slice(0, 8) // Only take the top 8 results to save tokens and keep it fast
-      .map((item, index) => `[Source ${index + 1}: ${item.source}] Title: ${item.title}\nContent: ${item.content}`)
-      .join('\n\n---\n\n');
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // 2. The User Prompt (What the user asked + the data we found)
-    const prompt = `
-      USER QUERY: "${query}"
-      
-      RETRIEVED WEB CONTEXT:
-      ${contextString}
-    `;
+    // Optimization: Keeping instructions extremely tight to save tokens
+    const systemInstruction = isProMode
+      ? `Staff SDE Mode: Provide a bold TL;DR, Root Cause, Implementation (code block), and Trade-offs.`
+      : `Dev Assistant Mode: Answer the query briefly using only the provided context.`;
 
-    // 3. Call Gemini 2.5 Flash (Optimized for speed and coding tasks)
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        // The "God-Tier" System Prompt to enforce strict SDE behavior
-        systemInstruction: `You are an elite, no-nonsense Senior Staff Engineer answering a junior developer's question. 
-        
-        CRITICAL RULES:
-        1. You MUST synthesize your answer using ONLY the 'RETRIEVED WEB CONTEXT' provided. 
-        2. Do NOT use your outside training data to guess. If the answer or code is not in the context, you must strictly reply with: "Current web context does not contain a verified solution for this specific issue."
-        3. Do NOT just summarize the articles. Deconstruct the problem, find the root cause, and provide the exact code fix found in the context.
-        4. Cite your sources inline using [Source X].
-        
-        FORMAT YOUR RESPONSE STRICTLY AS FOLLOWS (using Markdown):
-        ### The "Why"
-        (1-2 sentences explaining the root cause of the issue or the core concept)
-        
-        ### The Optimal Solution
-        (Brief explanation of how to fix it or implement it)
-        
-        ### Production-Ready Code
-        (The exact code block snippet using markdown code fences. Include the language tag.)
-        
-        ### Edge Cases / Warnings
-        (Any warnings, deprecations, or edge cases mentioned in the context. If none, omit this section.)`,
-        temperature: 0.2, // Low temperature ensures highly deterministic, factual output (less "creative" guessing)
-      }
-    });
+    // CRITICAL: Trimming context to the top 3 results only to stay under Free Tier token limits
+    const safeContextData = contextData.slice(0, 3);
+    const contextString = safeContextData
+      .map(d => `Source: ${d.source}\nContent: ${d.content.substring(0, 600)}`) // Trimming content length
+      .join('\n\n');
 
-    return response.text;
+    const prompt = `${systemInstruction}\n\nQuery: ${query}\n\nContext:\n${contextString}`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text();
   } catch (error) {
-    console.error("Gemini AI Synthesis Error:", error);
-    return "The AI engine is currently unavailable. Please refer to the source links below.";
+    console.error("🔥 GEMINI API ERROR:", error.message);
+    
+    // UI-friendly message for quota issues
+    if (error.message.includes('429')) {
+      return "⚡ **Neural Engine Cooling Down.** You've reached the free tier rate limit. Please wait 30-60 seconds and try again.";
+    }
+    
+    return `Synthesis Error: ${error.message}`;
   }
 };
 

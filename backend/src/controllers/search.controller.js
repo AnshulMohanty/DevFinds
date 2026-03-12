@@ -1,81 +1,92 @@
 const StackOverflowProvider = require('../services/providers/StackOverflowProvider');
 const TavilyProvider = require('../services/providers/TavilyProvider');
 const { generateDeveloperAnswer } = require('../services/ai.service');
+const SearchHistory = require('../models/SearchHistory');
 const catchAsync = require('../utils/catchAsync');
 const { getRedisClient } = require('../config/redis');
+const jwt = require('jsonwebtoken');
 
-// Our new RAG Provider array: Meta-Search + Dedicated StackOverflow Fallback
-const providers = [
-  new TavilyProvider(),
-  new StackOverflowProvider()
-];
+const providers = [new TavilyProvider(), new StackOverflowProvider()];
 
-// Heuristic Ranking Function to sort the cards below the AI answer
 const calculateRelevance = (item, query) => {
   let weight = item.score || 0;
   const title = item.title.toLowerCase();
-  const content = (item.content || "").toLowerCase();
   const q = query.toLowerCase();
-
   if (title.includes(q)) weight += 100;
-
-  const codeMarkers = ['const', 'function', 'import', 'def', 'public', 'class', '=>', '{', '<code>'];
-  codeMarkers.forEach(marker => {
-    if (content.includes(marker)) weight += 15;
-  });
-
-  if (item.source === 'stackoverflow.com' || item.source === 'stackoverflow') weight += 50;
-  if (item.source === 'github.com') weight += 40;
-
   return weight;
 };
 
 const searchWeb = catchAsync(async (req, res, next) => {
-  const { q } = req.query;
+  const { q, proMode } = req.query;
   if (!q) return res.status(400).json({ success: false, error: 'Query required' });
 
-  // 1. Parallel Data Retrieval
+  const isProMode = proMode === 'true';
+  const redisClient = getRedisClient();
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
+
+  let isAuthed = false;
+  let userId = null;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      isAuthed = true;
+      userId = decoded.id;
+    } catch (err) {}
+  }
+
+  let remainingCredits = 'Unlimited';
+  if (!isAuthed) {
+    const rateLimitKey = `ratelimit:search:${ip}`;
+    const currentUsage = await redisClient.get(rateLimitKey);
+    if (currentUsage && parseInt(currentUsage) >= 5) return res.status(403).json({ success: false, error: 'CREDITS_EXHAUSTED' });
+    await redisClient.incr(rateLimitKey);
+    const newUsage = await redisClient.get(rateLimitKey);
+    remainingCredits = 5 - parseInt(newUsage);
+  } else if (userId) {
+    await SearchHistory.findOneAndUpdate({ user: userId, query: q }, { createdAt: Date.now() }, { upsert: true });
+  }
+
+  const cacheKey = `search:${q.toLowerCase()}:pro:${isProMode}`;
+  const cachedResult = await redisClient.get(cacheKey);
+  if (cachedResult) {
+    const parsedCache = JSON.parse(cachedResult);
+    parsedCache.remainingCredits = remainingCredits;
+    return res.status(200).json(parsedCache);
+  }
+
   const fetchPromises = providers.map(p => p.search(q));
   const results = await Promise.allSettled(fetchPromises);
-
   let allCleanData = [];
   results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      const cleanData = providers[index].normalize(result.value);
-      allCleanData = [...allCleanData, ...cleanData];
-    }
+    if (result.status === 'fulfilled') allCleanData = [...allCleanData, ...providers[index].normalize(result.value)];
   });
 
-  // 2. Smart Ranking for the Source Cards
-  allCleanData = allCleanData.map(item => ({
-    ...item,
-    relevanceScore: calculateRelevance(item, q)
-  })).sort((a, b) => b.relevanceScore - a.relevanceScore);
+  allCleanData = allCleanData.map(item => ({ ...item, relevanceScore: calculateRelevance(item, q) })).sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-  // 3. THE RAG PIPELINE: Feed the top data to Gemini
-  // We don't await the AI if there is no data found
-  let aiAnswer = "No relevant developer context found on the web to generate an answer.";
-  if (allCleanData.length > 0) {
-    aiAnswer = await generateDeveloperAnswer(q, allCleanData);
-  }
+  let aiAnswer = "No relevant context found.";
+  if (allCleanData.length > 0) aiAnswer = await generateDeveloperAnswer(q, allCleanData, isProMode);
 
-  const finalPayload = { 
-    success: true, 
-    count: allCleanData.length, 
-    aiSummary: aiAnswer, // <--- New AI field sent to frontend
-    data: allCleanData 
-  };
+  const finalPayload = { success: true, aiSummary: aiAnswer, data: allCleanData, remainingCredits };
+  try { await redisClient.set(cacheKey, JSON.stringify(finalPayload), { EX: 3600 }); } catch (err) {}
 
-  // 4. Cache the ENTIRE result (Data + AI Answer) in Redis for instant subsequent loads
-  try {
-    const redisClient = getRedisClient();
-    await redisClient.set(`search:${q.toLowerCase()}`, JSON.stringify(finalPayload), { EX: 3600 });
-  } catch (err) { 
-    console.error('Redis Error:', err); 
-  }
-
-  // 5. Send back to user
   res.status(200).json(finalPayload);
 });
 
-module.exports = { searchWeb };
+const getHistory = catchAsync(async (req, res) => {
+  const history = await SearchHistory.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(15);
+  res.status(200).json({ success: true, data: history });
+});
+
+// NEW: Delete individual log
+const deleteHistoryItem = catchAsync(async (req, res) => {
+  await SearchHistory.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+  res.status(200).json({ success: true, message: 'Log deleted' });
+});
+
+const clearHistory = catchAsync(async (req, res) => {
+  await SearchHistory.deleteMany({ user: req.user.id });
+  res.status(200).json({ success: true, message: 'History wiped' });
+});
+
+module.exports = { searchWeb, getHistory, clearHistory, deleteHistoryItem };

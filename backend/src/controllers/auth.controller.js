@@ -1,80 +1,55 @@
+const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
-const User = require('../models/user.model');
 const catchAsync = require('../utils/catchAsync');
 
-// --- jWT generate krne ka Fn : 'Generate JWT' ---
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+    expiresIn: process.env.JWT_EXPIRES_IN || '30d'
   });
 };
 
-// --- Controller: Register a New User ---
-const registerUser = catchAsync(async (req, res, next) => {
+exports.register = catchAsync(async (req, res) => {
   const { name, email, password } = req.body;
-
-  const userExists = await User.findOne({ email });
-  if (userExists) {
-    const error = new Error('User already exists with this email');
-    error.statusCode = 400; 
-    throw error; 
-  }
-
-  const user = await User.create({
-    name,
-    email,
-    password,
-  });
-
+  const user = await User.create({ name, email, password });
   const token = signToken(user._id);
-
-  res.status(201).json({
-    success: true,
-    token,
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-    },
-  });
+  res.status(201).json({ success: true, token, data: user });
 });
 
-// --- Controller: Login an Existing User ---
-const loginUser = catchAsync(async (req, res, next) => {
+exports.login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Please provide email and password' });
 
   const user = await User.findOne({ email }).select('+password');
-
   if (!user || !(await user.matchPassword(password))) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401; 
-    throw error;
+    return res.status(401).json({ error: 'Invalid credentials' });
   }
 
   const token = signToken(user._id);
-
-  res.status(200).json({
-    success: true,
-    token,
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-    },
-  });
+  res.status(200).json({ success: true, token, data: user });
 });
 
-// --- Controller: Get Current Logged In User ---
-const getMe = catchAsync(async (req, res, next) => {
-  res.status(200).json({
-    success: true,
-    data: req.user,
-  });
+exports.getMe = catchAsync(async (req, res) => {
+  const user = await User.findById(req.user.id);
+  res.status(200).json({ success: true, data: user });
 });
 
-// sb yahan export kr rahe hain taaki hum apne routes me use kar sakein
-module.exports = {
-  registerUser,
-  loginUser,
-  getMe,
-};
+exports.updateProfile = catchAsync(async (req, res) => {
+  try {
+    const { name, bio, githubUrl } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, bio, githubUrl },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    console.error("🔥 PROFILE UPDATE ERROR:", error);
+    // THIS IS THE FIX: We are sending the EXACT database error to your frontend UI
+    res.status(500).json({ 
+      success: false, 
+      error: `DB ERROR: ${error.message}` 
+    });
+  }
+});
